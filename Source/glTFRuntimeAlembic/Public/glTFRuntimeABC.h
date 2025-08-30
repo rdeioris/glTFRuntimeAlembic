@@ -28,6 +28,18 @@ enum class EglTFRuntimeAlembicPODType : uint8
 	Unknown = 127
 };
 
+UENUM()
+enum class EglTFRuntimeAlembicXformOpType : uint8
+{
+	Scale = 0,
+	Translate = 1,
+	Rotate = 2,
+	Matrix = 3,
+	RotateX = 4,
+	RotateY = 5,
+	RotateZ = 6
+};
+
 namespace glTFRuntimeAlembic
 {
 	struct GLTFRUNTIMEALEMBIC_API IOgawaNode : public TSharedFromThis<IOgawaNode>
@@ -411,9 +423,25 @@ namespace glTFRuntimeAlembic
 
 		bool Get(const uint32 TrueSampleIndex, FMatrix& Matrix)
 		{
-			if (PODSize == 0 || Extent < 16)
+			if (PODSize == 0)
 			{
 				return false;
+			}
+
+			Matrix = FMatrix::Identity;
+
+			uint8 NumRows = 0;
+			uint8 NumCols = 0;
+
+			if (Extent == 16)
+			{
+				NumRows = 4;
+				NumCols = 4;
+			}
+			else if (Extent == 9)
+			{
+				NumRows = 3;
+				NumCols = 3;
 			}
 
 			const TSharedPtr<FOgawaData> Data = Group->GetData(TrueSampleIndex);
@@ -422,11 +450,11 @@ namespace glTFRuntimeAlembic
 				return false;
 			}
 
-			for (uint8 Row = 0; Row < 4; Row++)
+			for (uint8 Row = 0; Row < NumRows; Row++)
 			{
-				for (uint8 Col = 0; Col < 4; Col++)
+				for (uint8 Col = 0; Col < NumCols; Col++)
 				{
-					if (!ReadPOD(Data, (Row * 4 + Col) * PODSize, Matrix.M[Row][Col]))
+					if (!ReadPOD(Data, (Row * NumCols + Col) * PODSize, Matrix.M[Row][Col]))
 					{
 						return false;
 					}
@@ -694,5 +722,5 @@ namespace glTFRuntimeAlembic
 	GLTFRUNTIMEALEMBIC_API TSharedPtr<FObject> ParseArchive(const TSharedRef<FOgawaGroup> Group);
 	GLTFRUNTIMEALEMBIC_API TSharedPtr<FObject> ParseArchive(const TArrayView64<uint8>& Blob);
 	GLTFRUNTIMEALEMBIC_API TMap<FString, FString> DataToMetadata(const TArrayView64<uint8>& Data);
-
+	GLTFRUNTIMEALEMBIC_API bool BuildMatrix(const uint32 OpsTrueSampleIndex, const TSharedRef<FScalarProperty>& Ops, const uint32 ValsTrueSampleIndex, const TSharedRef<FScalarProperty>& Vals, FMatrix& Matrix);
 }

@@ -5,7 +5,7 @@
 #include "GroomAsset.h"
 #include "GroomBuilder.h"
 
-bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeAsset* Asset, const FString& ObjectPath, FglTFRuntimeMeshLOD& RuntimeLOD, const FglTFRuntimeMaterialsConfig& StaticMeshMaterialsConfig)
+bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const int32 SampleIndex, FglTFRuntimeMeshLOD& RuntimeLOD, const FglTFRuntimeMaterialsConfig& StaticMeshMaterialsConfig)
 {
 	TSharedPtr<glTFRuntimeAlembic::FObject> Root = glTFRuntimeAlembic::ParseArchive(Asset->GetParser()->GetBlob());
 	if (!Root)
@@ -19,14 +19,6 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
-	TSharedPtr<glTFRuntimeAlembic::IProperty> GeomPProperty = Object->FindProperty(".geom/P");
-	if (!GeomPProperty)
-	{
-		return false;
-	}
-
-	TSharedRef<glTFRuntimeAlembic::FArrayProperty> GeomPArrayProperty = StaticCastSharedRef<glTFRuntimeAlembic::FArrayProperty>(GeomPProperty.ToSharedRef());
-
 	FglTFRuntimePrimitive Primitive;
 
 	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> PositionsProperty = Object->FindArrayProperty(".geom/P");
@@ -35,7 +27,13 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
-	if (!PositionsProperty->Get(0, Primitive.Positions))
+	uint32 PositionsPropertyTrueSampleIndex;
+	if (!PositionsProperty->GetSampleTrueIndex(SampleIndex, PositionsPropertyTrueSampleIndex))
+	{
+		return false;
+	}
+
+	if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, Primitive.Positions))
 	{
 		return false;
 	}
@@ -51,18 +49,30 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
+	uint32 FaceIndicesPropertyTrueSampleIndex;
+	if (!FaceIndicesProperty->GetSampleTrueIndex(SampleIndex, FaceIndicesPropertyTrueSampleIndex))
+	{
+		return false;
+	}
+
 	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> FaceCountsProperty = Object->FindArrayProperty(".geom/.faceCounts");
 	if (!FaceCountsProperty)
 	{
 		return false;
 	}
 
-	const uint32 NumFaces = FaceCountsProperty->Num(0);
+	uint32 FaceCountsPropertyTrueSampleIndex;
+	if (!FaceCountsProperty->GetSampleTrueIndex(SampleIndex, FaceCountsPropertyTrueSampleIndex))
+	{
+		return false;
+	}
+
+	const uint32 NumFaces = FaceCountsProperty->Num(FaceCountsPropertyTrueSampleIndex);
 	uint32 TotalFaceIndices = 0;
 	for (uint32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
 	{
 		uint32 NumVertices;
-		if (!FaceCountsProperty->Get(0, FaceIndex, 0, NumVertices))
+		if (!FaceCountsProperty->Get(FaceCountsPropertyTrueSampleIndex, FaceIndex, 0, NumVertices))
 		{
 			return false;
 		}
@@ -73,7 +83,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
 		{
 			uint32 PositionIndex;
-			if (!FaceIndicesProperty->Get(0, TotalFaceIndices + VertexIndex, 0, PositionIndex))
+			if (!FaceIndicesProperty->Get(FaceIndicesPropertyTrueSampleIndex, TotalFaceIndices + VertexIndex, 0, PositionIndex))
 			{
 				return false;
 			}

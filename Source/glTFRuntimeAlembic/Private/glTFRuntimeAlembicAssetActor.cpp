@@ -56,7 +56,7 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(Component))
 	{
 		FglTFRuntimeMeshLOD LOD;
-		if (UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(Asset, Object->Path, LOD, StaticMeshConfig.MaterialsConfig))
+		if (UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(Asset, Object->Path, SampleIndex, LOD, StaticMeshConfig.MaterialsConfig))
 		{
 			UStaticMesh* StaticMesh = Asset->LoadStaticMeshFromRuntimeLODs({ LOD }, StaticMeshConfig);
 			if (StaticMesh)
@@ -67,12 +67,26 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 	}
 	else
 	{
-		if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixProperty = Object->FindScalarProperty(".xform/.vals"))
+		if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixOpsProperty = Object->FindScalarProperty(".xform/.ops"))
 		{
-			FMatrix Matrix;
-			if (MatrixProperty->Get(0, Matrix))
+			if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixValsProperty = Object->FindScalarProperty(".xform/.vals"))
 			{
-				Component->SetRelativeTransform(Asset->GetParser()->TransformTransform(FTransform(Matrix)));
+				uint32 MatrixOpsPropertyTrueSampleIndex;
+				if (!MatrixOpsProperty->GetSampleTrueIndex(SampleIndex, MatrixOpsPropertyTrueSampleIndex))
+				{
+					return;
+				}
+				uint32 MatrixValsPropertyTrueSampleIndex;
+				if (!MatrixValsProperty->GetSampleTrueIndex(SampleIndex, MatrixValsPropertyTrueSampleIndex))
+				{
+					return;
+				}
+
+				FMatrix Matrix;
+				if (glTFRuntimeAlembic::BuildMatrix(MatrixOpsPropertyTrueSampleIndex, MatrixOpsProperty.ToSharedRef(), MatrixValsPropertyTrueSampleIndex, MatrixValsProperty.ToSharedRef(), Matrix))
+				{
+					Component->SetRelativeTransform(Asset->GetParser()->TransformTransform(FTransform(Matrix)));
+				}
 			}
 		}
 	}

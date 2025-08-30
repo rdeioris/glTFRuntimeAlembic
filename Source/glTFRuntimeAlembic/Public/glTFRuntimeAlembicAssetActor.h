@@ -24,6 +24,8 @@ protected:
 
 	void ProcessObject(USceneComponent* Component, TSharedRef<glTFRuntimeAlembic::FObject> Object);
 
+	int32 TrueSampleIndex = 0;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -39,6 +41,9 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category = "glTFRuntime|Alembic", meta = (DisplayName = "On Scenes Loaded"))
 	void ReceiveOnScenesLoaded();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ExposeOnSpawn = true), Category = "glTFRuntime|Alembic")
+	int32 SampleIndex = 0;
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "glTFRuntime|Alembic")

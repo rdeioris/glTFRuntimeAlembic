@@ -860,4 +860,134 @@ namespace glTFRuntimeAlembic
 
 		return Metadata;
 	}
+
+	bool BuildMatrix(const uint32 OpsTrueSampleIndex, const TSharedRef<FScalarProperty>& Ops, const uint32 ValsTrueSampleIndex, const TSharedRef<FScalarProperty>& Vals, FMatrix& Matrix)
+	{
+		Matrix.SetIdentity();
+		uint8 CurrentValsOffset = 0;
+		for (uint8 ExtentIndex = 0; ExtentIndex < Ops->Extent; ExtentIndex++)
+		{
+			FMatrix OpMatrix = FMatrix::Identity;
+			uint8 OpTypeAsUint8;
+			if (!Ops->Get(OpsTrueSampleIndex, ExtentIndex, OpTypeAsUint8))
+			{
+				return false;
+			}
+
+			const EglTFRuntimeAlembicXformOpType OpType = static_cast<EglTFRuntimeAlembicXformOpType>((OpTypeAsUint8 >> 4) & 0xF);
+
+			switch (OpType)
+			{
+			case(EglTFRuntimeAlembicXformOpType::Matrix):
+			{
+				for (uint8 Row = 0; Row < 4; Row++)
+				{
+					for (uint8 Col = 0; Col < 4; Col++)
+					{
+						if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, OpMatrix.M[Row][Col]))
+						{
+							return false;
+						}
+					}
+				}
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::Translate):
+			{
+				FVector Delta = FVector::ZeroVector;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Delta.X))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Delta.Y))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Delta.Z))
+				{
+					return false;
+				}
+				OpMatrix = FTranslationMatrix(Delta);
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::Scale):
+			{
+				FVector Scale = FVector::OneVector;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Scale.X))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Scale.Y))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Scale.Z))
+				{
+					return false;
+				}
+				OpMatrix = FScaleMatrix(Scale);
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::RotateX):
+			{
+				double Degrees = 0;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Degrees))
+				{
+					return false;
+				}
+				OpMatrix = FQuatRotationMatrix(FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(Degrees)));
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::RotateY):
+			{
+				double Degrees = 0;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Degrees))
+				{
+					return false;
+				}
+				OpMatrix = FQuatRotationMatrix(FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(Degrees)));
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::RotateZ):
+			{
+				double Degrees = 0;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Degrees))
+				{
+					return false;
+				}
+				OpMatrix = FQuatRotationMatrix(FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(Degrees)));
+				break;
+			}
+			case(EglTFRuntimeAlembicXformOpType::Rotate):
+			{
+				FVector Axis = FVector::ZeroVector;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Axis.X))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Axis.Y))
+				{
+					return false;
+				}
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Axis.Z))
+				{
+					return false;
+				}
+				double Degrees = 0;
+				if (!Vals->Get(ValsTrueSampleIndex, CurrentValsOffset++, Degrees))
+				{
+					return false;
+				}
+				OpMatrix = FQuatRotationMatrix(FQuat(Axis, FMath::DegreesToRadians(Degrees)));
+				break;
+			}
+			default:
+				return false;
+			}
+
+			Matrix = OpMatrix * Matrix;
+		}
+
+		return true;
+	}
 }

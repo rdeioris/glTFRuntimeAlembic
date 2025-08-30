@@ -18,7 +18,7 @@ class GLTFRUNTIMEALEMBIC_API UglTFRuntimeABCFunctionLibrary : public UBlueprintF
 
 public:
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "MaterialsConfig", AutoCreateRefTerm = "StaticMeshMaterialsConfig"), Category = "glTFRuntime|Alembic")
-	static bool LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeAsset* Asset, const FString& ObjectPath, FglTFRuntimeMeshLOD& RuntimeLOD, const FglTFRuntimeMaterialsConfig& StaticMeshMaterialsConfig);
+	static bool LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const int32 SampleIndex, FglTFRuntimeMeshLOD& RuntimeLOD, const FglTFRuntimeMaterialsConfig& StaticMeshMaterialsConfig);
 
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "MaterialsConfig", AutoCreateRefTerm = "StaticMeshMaterialsConfig,SkeletalMeshMaterialsConfig"), Category = "glTFRuntime|Alembic")
 	static class UGroomAsset* LoadGroomFromAlembicObject(UglTFRuntimeAsset* Asset, const FString& ObjectPath);
