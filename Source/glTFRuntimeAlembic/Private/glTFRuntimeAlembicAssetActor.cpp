@@ -53,9 +53,43 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 		Component->ComponentTags.Add(FName(FString::Printf(TEXT("glTFRuntimeAlembic::Object::Metadata::%s=%s"), *Pair.Key, *Pair.Value)));
 	}
 
+	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(Component))
+	{
+		FglTFRuntimeMeshLOD LOD;
+		if (UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(Asset, Object->Path, LOD, StaticMeshConfig.MaterialsConfig))
+		{
+			UStaticMesh* StaticMesh = Asset->LoadStaticMeshFromRuntimeLODs({ LOD }, StaticMeshConfig);
+			if (StaticMesh)
+			{
+				StaticMeshComponent->SetStaticMesh(StaticMesh);
+			}
+		}
+	}
+	else
+	{
+		if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixProperty = Object->FindScalarProperty(".xform/.vals"))
+		{
+			FMatrix Matrix;
+			if (MatrixProperty->Get(0, Matrix))
+			{
+				Component->SetRelativeTransform(Asset->GetParser()->TransformTransform(FTransform(Matrix)));
+			}
+		}
+	}
+
 	for (const TSharedRef<glTFRuntimeAlembic::FObject>& Child : Object->Children)
 	{
-		USceneComponent* ChildComponent = NewObject<USceneComponent>(this, MakeUniqueObjectName(this, USceneComponent::StaticClass(), *Child->Name));
+		USceneComponent* ChildComponent = nullptr;
+
+		if (Child->GetSchema() == "AbcGeom_PolyMesh_v1")
+		{
+			ChildComponent = NewObject<UStaticMeshComponent>(this, MakeUniqueObjectName(this, UStaticMeshComponent::StaticClass(), *Child->Name));
+		}
+		else
+		{
+			ChildComponent = NewObject<USceneComponent>(this, MakeUniqueObjectName(this, USceneComponent::StaticClass(), *Child->Name));
+		}
+
 		ChildComponent->SetupAttachment(Component);
 		ChildComponent->RegisterComponent();
 		AddInstanceComponent(ChildComponent);

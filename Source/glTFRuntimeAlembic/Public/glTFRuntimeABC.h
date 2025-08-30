@@ -367,6 +367,75 @@ namespace glTFRuntimeAlembic
 			return false;
 		}
 
+		template<typename T>
+		bool Get(const uint32 TrueSampleIndex, const uint64 ExtentIndex, T& Value)
+		{
+			if (PODSize == 0 || ExtentIndex >= Extent)
+			{
+				return false;
+			}
+
+			const TSharedPtr<FOgawaData> Data = Group->GetData(TrueSampleIndex);
+			if (!Data)
+			{
+				return false;
+			}
+
+			return ReadPOD(Data, PODSize * ExtentIndex, Value);
+		}
+
+		template<typename T, uint8 N>
+		bool Get(const uint32 TrueSampleIndex, T(&Values)[N])
+		{
+			if (PODSize == 0 || N > Extent)
+			{
+				return false;
+			}
+
+			const TSharedPtr<FOgawaData> Data = Group->GetData(TrueSampleIndex);
+			if (!Data)
+			{
+				return false;
+			}
+
+			for (uint8 ExtentIndex = 0; ExtentIndex < N; ExtentIndex++)
+			{
+				if (!ReadPOD(Data, PODSize * ExtentIndex, Values[ExtentIndex]))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		bool Get(const uint32 TrueSampleIndex, FMatrix& Matrix)
+		{
+			if (PODSize == 0 || Extent < 16)
+			{
+				return false;
+			}
+
+			const TSharedPtr<FOgawaData> Data = Group->GetData(TrueSampleIndex);
+			if (!Data)
+			{
+				return false;
+			}
+
+			for (uint8 Row = 0; Row < 4; Row++)
+			{
+				for (uint8 Col = 0; Col < 4; Col++)
+				{
+					if (!ReadPOD(Data, (Row * 4 + Col) * PODSize, Matrix.M[Row][Col]))
+					{
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+
 		const EglTFRuntimeAlembicPODType PODType;
 		const uint8 Extent;
 
@@ -617,6 +686,9 @@ namespace glTFRuntimeAlembic
 
 		TSharedPtr<IProperty> FindProperty(const FString& PropertyPath) const;
 		TSharedPtr<FArrayProperty> FindArrayProperty(const FString& PropertyPath) const;
+		TSharedPtr<FScalarProperty> FindScalarProperty(const FString& PropertyPath) const;
+
+		FString GetSchema() const;
 	};
 
 	GLTFRUNTIMEALEMBIC_API TSharedPtr<FObject> ParseArchive(const TSharedRef<FOgawaGroup> Group);

@@ -40,20 +40,66 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
+	for (FVector& Position : Primitive.Positions)
+	{
+		Position = Asset->GetParser()->TransformPosition(Position);
+	}
+
 	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> FaceIndicesProperty = Object->FindArrayProperty(".geom/.faceIndices");
 	if (!FaceIndicesProperty)
 	{
 		return false;
 	}
 
-#if 0
-	if (!FaceIndicesProperty->Get(0, Primitive.Indices))
+	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> FaceCountsProperty = Object->FindArrayProperty(".geom/.faceCounts");
+	if (!FaceCountsProperty)
 	{
 		return false;
 	}
 
-	PolygonTriangulation::TriangulateSimplePolygon()
-#endif
+	const uint32 NumFaces = FaceCountsProperty->Num(0);
+	uint32 TotalFaceIndices = 0;
+	for (uint32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
+	{
+		uint32 NumVertices;
+		if (!FaceCountsProperty->Get(0, FaceIndex, 0, NumVertices))
+		{
+			return false;
+		}
+
+		TArray<uint32> PositionIndexMap;
+		TArray<FVector> PolygonPositions;
+
+		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
+		{
+			uint32 PositionIndex;
+			if (!FaceIndicesProperty->Get(0, TotalFaceIndices + VertexIndex, 0, PositionIndex))
+			{
+				return false;
+			}
+
+			if (!Primitive.Positions.IsValidIndex(PositionIndex))
+			{
+				return false;
+			}
+
+			PolygonPositions.Add(Primitive.Positions[PositionIndex]);
+			PositionIndexMap.Add(PositionIndex);
+		}
+
+		TArray<UE::Geometry::FIndex3i> Triangles;
+		PolygonTriangulation::TriangulateSimplePolygon(PolygonPositions, Triangles);
+		for (uint32 TriangleIndex = 0; TriangleIndex < static_cast<uint32>(Triangles.Num()); TriangleIndex++)
+		{
+			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].A]);
+			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].B]);
+			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].C]);
+		}
+
+		TotalFaceIndices += NumVertices;
+	}
+
+	RuntimeLOD.Primitives.Add(MoveTemp(Primitive));
 
 	return true;
 }

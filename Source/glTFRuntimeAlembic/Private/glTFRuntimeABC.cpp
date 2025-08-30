@@ -635,6 +635,15 @@ namespace glTFRuntimeAlembic
 		}
 	}
 
+	FString FObject::GetSchema() const
+	{
+		if (Metadata.Contains("schema"))
+		{
+			return Metadata["schema"];
+		}
+		return "";
+	}
+
 	TSharedPtr<IProperty> FObject::GetProperty(const int32 PropertyIndex) const
 	{
 		if (!Properties->Children.IsValidIndex(PropertyIndex))
@@ -656,6 +665,50 @@ namespace glTFRuntimeAlembic
 		}
 
 		return nullptr;
+	}
+
+	TSharedPtr<FScalarProperty> FObject::GetScalarProperty(const int32 PropertyIndex) const
+	{
+		TSharedPtr<IProperty> Property = GetProperty(PropertyIndex);
+		if (!Property)
+		{
+			return nullptr;
+		}
+
+		if (Property->bIsCompound)
+		{
+			return nullptr;
+		}
+
+		TSharedPtr<FScalarProperty> ScalarProperty = StaticCastSharedPtr<FScalarProperty>(Property);
+		if (ScalarProperty->bIsArray)
+		{
+			return nullptr;
+		}
+
+		return ScalarProperty;
+	}
+
+	TSharedPtr<FScalarProperty> FObject::GetScalarProperty(const FString& PropertyName) const
+	{
+		TSharedPtr<IProperty> Property = GetProperty(PropertyName);
+		if (!Property)
+		{
+			return nullptr;
+		}
+
+		if (Property->bIsCompound)
+		{
+			return nullptr;
+		}
+
+		TSharedPtr<FScalarProperty> ScalarProperty = StaticCastSharedPtr<FScalarProperty>(Property);
+		if (ScalarProperty->bIsArray)
+		{
+			return nullptr;
+		}
+
+		return ScalarProperty;
 	}
 
 	TSharedPtr<FArrayProperty> FObject::GetArrayProperty(const int32 PropertyIndex) const
@@ -722,6 +775,28 @@ namespace glTFRuntimeAlembic
 		}
 
 		return StaticCastSharedPtr<FArrayProperty>(ScalarProperty);
+	}
+
+	TSharedPtr<FScalarProperty> FObject::FindScalarProperty(const FString& PropertyPath) const
+	{
+		TSharedPtr<IProperty> Property = FindProperty(PropertyPath);
+		if (!Property)
+		{
+			return nullptr;
+		}
+
+		if (Property->bIsCompound)
+		{
+			return nullptr;
+		}
+
+		TSharedPtr<FScalarProperty> ScalarProperty = StaticCastSharedPtr<FScalarProperty>(Property);
+		if (ScalarProperty->bIsArray)
+		{
+			return nullptr;
+		}
+
+		return ScalarProperty;
 	}
 
 	TSharedPtr<IProperty> FCompoundProperty::GetChild(const int32 ChildIndex) const
