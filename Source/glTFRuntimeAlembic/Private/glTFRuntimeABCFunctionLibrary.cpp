@@ -67,6 +67,22 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
+	TArray<FVector> Normals;
+	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> NormalsProperty = Object->FindArrayProperty(".geom/N");
+	if (NormalsProperty)
+	{
+		uint32 NormalsPropertyTrueSampleIndex;
+		if (!NormalsProperty->GetSampleTrueIndex(SampleIndex, NormalsPropertyTrueSampleIndex))
+		{
+			return false;
+		}
+
+		if (!NormalsProperty->Get(NormalsPropertyTrueSampleIndex, Normals))
+		{
+			return false;
+		}
+	}
+
 	const uint32 NumFaces = FaceCountsProperty->Num(FaceCountsPropertyTrueSampleIndex);
 	uint32 TotalFaceIndices = 0;
 	for (uint32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
@@ -78,6 +94,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		}
 
 		TArray<uint32> PositionIndexMap;
+		TArray<uint32> VertexIndexIndexMap;
 		TArray<FVector> PolygonPositions;
 
 		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
@@ -95,6 +112,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 			PolygonPositions.Add(Primitive.Positions[PositionIndex]);
 			PositionIndexMap.Add(PositionIndex);
+			VertexIndexIndexMap.Add(TotalFaceIndices + VertexIndex);
 		}
 
 		TArray<UE::Geometry::FIndex3i> Triangles;
@@ -104,6 +122,15 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].A]);
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].B]);
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].C]);
+			if (Normals.Num() > 0)
+			{
+				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].A]]));
+				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].B]]));
+				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].C]]));
+				Primitive.Tangents.AddDefaulted();
+				Primitive.Tangents.AddDefaulted();
+				Primitive.Tangents.AddDefaulted();
+			}
 		}
 
 		TotalFaceIndices += NumVertices;

@@ -43,6 +43,9 @@ public:
 	void ReceiveOnScenesLoaded();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ExposeOnSpawn = true), Category = "glTFRuntime|Alembic")
+	bool bUseGeometryCache = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ExposeOnSpawn = true), Category = "glTFRuntime|Alembic")
 	int32 SampleIndex = 0;
 
 private:

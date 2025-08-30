@@ -3,6 +3,9 @@
 
 #include "glTFRuntimeAlembicAssetActor.h"
 #include "glTFRuntimeABCFunctionLibrary.h"
+#include "glTFRuntimeGeomCacheComponent.h"
+#include "glTFRuntimeGeomCacheFuncLibrary.h"
+#include "glTFRuntimeGeometryCacheTrack.h"
 
 // Sets default values
 AglTFRuntimeAlembicAssetActor::AglTFRuntimeAlembicAssetActor()
@@ -65,6 +68,34 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 			}
 		}
 	}
+	else if (UglTFRuntimeGeomCacheComponent* GeomCacheComponent = Cast<UglTFRuntimeGeomCacheComponent>(Component))
+	{
+		// retrieve the number of frames from .geom/P
+		TSharedPtr<glTFRuntimeAlembic::FArrayProperty> PositionsProperty = Object->FindArrayProperty(".geom/P");
+		if (PositionsProperty)
+		{
+			uint32 NumFrames = PositionsProperty->NextSampleIndex;
+			TArray<FglTFRuntimeGeometryCacheFrame> Frames;
+			Frames.AddDefaulted(NumFrames);
+			for (uint32 FrameIndex = 0; FrameIndex < NumFrames; FrameIndex++)
+			{
+				Frames[FrameIndex].Time = 1.0 / 24 * FrameIndex;
+				if (!UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(Asset, Object->Path, FrameIndex, Frames[FrameIndex].Mesh, StaticMeshConfig.MaterialsConfig))
+				{
+					UE_LOG(LogGLTFRuntime, Warning, TEXT("Unable to load sample %u from %s"), FrameIndex, *Object->Path);
+				}
+			}
+			UglTFRuntimeGeometryCacheTrack* Track = UglTFRuntimeGeomCacheFuncLibrary::LoadRuntimeTrackFromGeometryCacheFrames(Frames);
+			if (Track)
+			{
+				UGeometryCache* GeometryCache = UglTFRuntimeGeomCacheFuncLibrary::LoadGeometryCacheFromRuntimeTracks({ Track });
+				if (GeometryCache)
+				{
+					GeomCacheComponent->SetGeometryCache(GeometryCache);
+				}
+			}
+		}
+	}
 	else
 	{
 		if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixOpsProperty = Object->FindScalarProperty(".xform/.ops"))
@@ -97,7 +128,14 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 
 		if (Child->GetSchema() == "AbcGeom_PolyMesh_v1")
 		{
-			ChildComponent = NewObject<UStaticMeshComponent>(this, MakeUniqueObjectName(this, UStaticMeshComponent::StaticClass(), *Child->Name));
+			if (bUseGeometryCache)
+			{
+				ChildComponent = NewObject<UglTFRuntimeGeomCacheComponent>(this, MakeUniqueObjectName(this, UglTFRuntimeGeomCacheComponent::StaticClass(), *Child->Name));
+			}
+			else
+			{
+				ChildComponent = NewObject<UStaticMeshComponent>(this, MakeUniqueObjectName(this, UStaticMeshComponent::StaticClass(), *Child->Name));
+			}
 		}
 		else
 		{
