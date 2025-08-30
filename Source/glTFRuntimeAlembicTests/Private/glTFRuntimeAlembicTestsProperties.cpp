@@ -2,7 +2,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 #include "glTFRuntimeAlembicTests.h"
-#include "glTFRuntimeABCFunctionLibrary.h"
+#include "glTFRuntimeABC.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FglTFRuntimeAlembicTests_Properties_Xform, "glTFRuntime.Alembic.UnitTests.Properties.xform", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

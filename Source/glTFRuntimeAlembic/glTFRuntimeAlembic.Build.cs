@@ -40,7 +40,8 @@ public class glTFRuntimeAlembic : ModuleRules
                 "glTFRuntime",
                 "glTFRuntimeGeometryCache",
                 "HairStrandsCore",
-                "Renderer"
+                "Renderer",
+                "GeometryCore"
             }
             );
 

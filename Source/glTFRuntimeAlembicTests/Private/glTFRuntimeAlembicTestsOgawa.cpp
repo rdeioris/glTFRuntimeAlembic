@@ -2,7 +2,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 #include "glTFRuntimeAlembicTests.h"
-#include "glTFRuntimeABCFunctionLibrary.h"
+#include "glTFRuntimeABC.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FglTFRuntimeAlembicTests_Ogawa_ZeroBlob, "glTFRuntime.Alembic.UnitTests.Ogawa.ZeroBlob", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
