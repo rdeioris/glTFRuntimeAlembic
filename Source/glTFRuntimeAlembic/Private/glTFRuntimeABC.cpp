@@ -621,7 +621,7 @@ namespace glTFRuntimeAlembic
 				return nullptr;
 			}
 
-			return MakeShared<FScalarProperty>(Name, PODType, Extent, TMap<FString, FString>{}, PropertyGroup.ToSharedRef(), NextSampleIndex, FirstChangedIndex, LastChangedIndex, TimeSampling);
+			return MakeShared<FScalarProperty>(Name, PODType, Extent, PropertyMetadata, PropertyGroup.ToSharedRef(), NextSampleIndex, FirstChangedIndex, LastChangedIndex, TimeSampling);
 		}
 		else // ArrayProperty, we cover both 2 and 3 here, as 3 means "scalar like"
 		{
@@ -631,7 +631,7 @@ namespace glTFRuntimeAlembic
 				return nullptr;
 			}
 
-			return MakeShared<FArrayProperty>(Name, PODType, Extent, TMap<FString, FString>{}, PropertyGroup.ToSharedRef(), NextSampleIndex, FirstChangedIndex, LastChangedIndex, TimeSampling);
+			return MakeShared<FArrayProperty>(Name, PODType, Extent, PropertyMetadata, PropertyGroup.ToSharedRef(), NextSampleIndex, FirstChangedIndex, LastChangedIndex, TimeSampling);
 		}
 	}
 

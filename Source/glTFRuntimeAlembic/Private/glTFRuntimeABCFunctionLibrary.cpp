@@ -33,12 +33,13 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
-	if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, Primitive.Positions))
+	TArray<FVector> Positions;
+	if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, Positions))
 	{
 		return false;
 	}
 
-	for (FVector& Position : Primitive.Positions)
+	for (FVector& Position : Positions)
 	{
 		Position = Asset->GetParser()->TransformPosition(Position);
 	}
@@ -81,7 +82,15 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		{
 			return false;
 		}
+
+		RuntimeLOD.bHasNormals = true;
 	}
+
+	//Primitive.bHasIndices = true;
+
+	//Primitive.Normals.AddZeroed(Primitive.Positions.Num());
+
+	TMap<uint32, TArray<FVector>> FoundNormals;
 
 	const uint32 NumFaces = FaceCountsProperty->Num(FaceCountsPropertyTrueSampleIndex);
 	uint32 TotalFaceIndices = 0;
@@ -105,13 +114,23 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 				return false;
 			}
 
-			if (!Primitive.Positions.IsValidIndex(PositionIndex))
+			if (!Positions.IsValidIndex(PositionIndex))
 			{
 				return false;
 			}
 
-			PolygonPositions.Add(Primitive.Positions[PositionIndex]);
+			PolygonPositions.Add(Positions[PositionIndex]);
 			PositionIndexMap.Add(PositionIndex);
+
+			if (Normals.IsValidIndex(TotalFaceIndices + VertexIndex))
+			{
+				if (!FoundNormals.Contains(PositionIndex))
+				{
+					FoundNormals.Add(PositionIndex);
+				}
+				FoundNormals[PositionIndex].Add(Normals[TotalFaceIndices + VertexIndex]);
+			}
+
 			VertexIndexIndexMap.Add(TotalFaceIndices + VertexIndex);
 		}
 
@@ -119,22 +138,61 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		PolygonTriangulation::TriangulateSimplePolygon(PolygonPositions, Triangles);
 		for (uint32 TriangleIndex = 0; TriangleIndex < static_cast<uint32>(Triangles.Num()); TriangleIndex++)
 		{
+			/*
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].A]);
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].B]);
 			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].C]);
-			if (Normals.Num() > 0)
+			*/
+			Primitive.Indices.Add(Primitive.Indices.Num());
+			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].A]]);
+			Primitive.Indices.Add(Primitive.Indices.Num());
+			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].B]]);
+			Primitive.Indices.Add(Primitive.Indices.Num());
+			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].C]]);
+
+			if (RuntimeLOD.bHasNormals)
 			{
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].A]]));
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].B]]));
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].C]]));
-				Primitive.Tangents.AddDefaulted();
-				Primitive.Tangents.AddDefaulted();
-				Primitive.Tangents.AddDefaulted();
 			}
+			else
+			{
+				Primitive.Normals.AddDefaulted();
+				Primitive.Normals.AddDefaulted();
+				Primitive.Normals.AddDefaulted();
+			}
+
+			Primitive.Tangents.AddDefaulted();
+			Primitive.Tangents.AddDefaulted();
+			Primitive.Tangents.AddDefaulted();
+			
 		}
 
 		TotalFaceIndices += NumVertices;
 	}
+
+	auto SmoothAverage = [](const TArray<FVector>& Values) -> FVector
+		{
+			if (Values.Num() < 1)
+			{
+				return FVector::ZeroVector;
+			}
+
+			FVector Accumulator = FVector::ZeroVector;
+
+			for (const FVector& Value : Values)
+			{
+				Accumulator += Value;
+			}
+
+			return Accumulator / Values.Num();
+		};
+
+	/*for (const TPair<uint32, TArray<FVector>>& Pair : FoundNormals)
+	{
+		Primitive.Normals[Pair.Key] = SmoothAverage(Pair.Value).GetSafeNormal();
+	}*/
 
 	RuntimeLOD.Primitives.Add(MoveTemp(Primitive));
 
