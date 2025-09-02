@@ -4,6 +4,7 @@
 #include "CompGeom/PolygonTriangulation.h"
 #include "GroomAsset.h"
 #include "GroomBuilder.h"
+#include "Components/SplineComponent.h"
 
 bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const int32 SampleIndex, FglTFRuntimeMeshLOD& RuntimeLOD, const FglTFRuntimeMaterialsConfig& StaticMeshMaterialsConfig)
 {
@@ -166,7 +167,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 			Primitive.Tangents.AddDefaulted();
 			Primitive.Tangents.AddDefaulted();
 			Primitive.Tangents.AddDefaulted();
-			
+
 		}
 
 		TotalFaceIndices += NumVertices;
@@ -348,4 +349,81 @@ UGroomAsset* UglTFRuntimeABCFunctionLibrary::LoadGroomFromAlembicObject(UglTFRun
 	GroomAsset->InitResources();
 
 	return GroomAsset;
+}
+
+bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectIntoSplineComponent(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const int32 SampleIndex, USplineComponent* SplineComponent)
+{
+	if (!Asset || !SplineComponent)
+	{
+		return false;
+	}
+
+	TSharedPtr<glTFRuntimeAlembic::FObject> Root = glTFRuntimeAlembic::ParseArchive(Asset->GetParser()->GetBlob());
+	if (!Root)
+	{
+		return false;
+	}
+
+	TSharedPtr<const glTFRuntimeAlembic::FObject> Object = Root->Find(ObjectPath);
+	if (!Object)
+	{
+		return false;
+	}
+
+	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> NumVerticesProperty = Object->FindArrayProperty(".geom/nVertices");
+	if (!NumVerticesProperty)
+	{
+		return false;
+	}
+
+	TSharedPtr<glTFRuntimeAlembic::FArrayProperty> PositionsProperty = Object->FindArrayProperty(".geom/P");
+	if (!PositionsProperty)
+	{
+		return false;
+	}
+
+	uint32 NumVerticesPropertyTrueSampleIndex = 0;
+	if (!NumVerticesProperty->GetSampleTrueIndex(SampleIndex, NumVerticesPropertyTrueSampleIndex))
+	{
+		return false;
+	}
+
+	uint32 PositionsPropertyTrueSampleIndex = 0;
+	if (!PositionsProperty->GetSampleTrueIndex(SampleIndex, PositionsPropertyTrueSampleIndex))
+	{
+		return false;
+	}
+
+	const uint64 NumCurves = NumVerticesProperty->Num(NumVerticesPropertyTrueSampleIndex);
+
+	if (NumCurves == 0)
+	{
+		return false;
+	}
+
+	uint64 TotalVertexIndex = 0;
+
+	for (uint64 CurveIndex = 0; CurveIndex < NumCurves; CurveIndex++)
+	{
+		uint32 NumVertices = 0;
+		if (!NumVerticesProperty->Get(NumVerticesPropertyTrueSampleIndex, CurveIndex, 0, NumVertices))
+		{
+			return false;
+		}
+
+		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
+		{
+			FVector Position;
+			if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, TotalVertexIndex + VertexIndex, Position))
+			{
+				return false;
+			}
+
+			SplineComponent->AddSplinePoint(Position, ESplineCoordinateSpace::Local);
+		}
+
+		TotalVertexIndex += NumVertices;
+	}
+
+	return true;
 }

@@ -23,4 +23,7 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "MaterialsConfig", AutoCreateRefTerm = "StaticMeshMaterialsConfig,SkeletalMeshMaterialsConfig"), Category = "glTFRuntime|Alembic")
 	static class UGroomAsset* LoadGroomFromAlembicObject(UglTFRuntimeAsset* Asset, const FString& ObjectPath);
 
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "MaterialsConfig", AutoCreateRefTerm = "StaticMeshMaterialsConfig,SkeletalMeshMaterialsConfig"), Category = "glTFRuntime|Alembic")
+	static bool LoadAlembicObjectIntoSplineComponent(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const int32 SampleIndex, class USplineComponent* SplineComponent);
+
 };
