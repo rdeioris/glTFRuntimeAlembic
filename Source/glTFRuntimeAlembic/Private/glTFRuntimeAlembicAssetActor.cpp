@@ -5,6 +5,7 @@
 #include "glTFRuntimeABCFunctionLibrary.h"
 #include "glTFRuntimeGeomCacheComponent.h"
 #include "glTFRuntimeGeomCacheFuncLibrary.h"
+#include "GroomComponent.h"
 #include "glTFRuntimeGeometryCacheTrack.h"
 
 // Sets default values
@@ -96,6 +97,18 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 			}
 		}
 	}
+	else if (UGroomComponent* GroomComponent = Cast<UGroomComponent>(Component))
+	{
+		UGroomAsset* GroomAsset = UglTFRuntimeABCFunctionLibrary::LoadGroomFromAlembicObject(Asset, Object->Path);
+		if (!GroomAsset)
+		{
+			UE_LOG(LogGLTFRuntime, Warning, TEXT("Unable to load groom from %s"), *Object->Path);
+		}
+		else
+		{
+			GroomComponent->SetGroomAsset(GroomAsset);
+		}
+	}
 	else
 	{
 		if (TSharedPtr<glTFRuntimeAlembic::FScalarProperty> MatrixOpsProperty = Object->FindScalarProperty(".xform/.ops"))
@@ -136,6 +149,10 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 			{
 				ChildComponent = NewObject<UStaticMeshComponent>(this, MakeUniqueObjectName(this, UStaticMeshComponent::StaticClass(), *Child->Name));
 			}
+		}
+		else if (Child->GetSchema() == "AbcGeom_Curve_v2")
+		{
+			ChildComponent = NewObject<UGroomComponent>(this, MakeUniqueObjectName(this, UGroomComponent::StaticClass(), *Child->Name));
 		}
 		else
 		{
