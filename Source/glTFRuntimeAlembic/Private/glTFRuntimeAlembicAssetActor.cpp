@@ -75,12 +75,12 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 		TSharedPtr<glTFRuntimeAlembic::FArrayProperty> PositionsProperty = Object->FindArrayProperty(".geom/P");
 		if (PositionsProperty)
 		{
-			uint32 NumFrames = PositionsProperty->NextSampleIndex;
+			const uint32 NumFrames = PositionsProperty->NextSampleIndex;
 			TArray<FglTFRuntimeGeometryCacheFrame> Frames;
 			Frames.AddDefaulted(NumFrames);
 			for (uint32 FrameIndex = 0; FrameIndex < NumFrames; FrameIndex++)
 			{
-				Frames[FrameIndex].Time = 1.0 / 24 * FrameIndex;
+				Frames[FrameIndex].Time = (1.0 / 24) * FrameIndex;
 				if (!UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(Asset, Object->Path, FrameIndex, Frames[FrameIndex].Mesh, StaticMeshConfig.MaterialsConfig))
 				{
 					UE_LOG(LogGLTFRuntime, Warning, TEXT("Unable to load sample %u from %s"), FrameIndex, *Object->Path);

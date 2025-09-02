@@ -83,15 +83,19 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		{
 			return false;
 		}
-
-		RuntimeLOD.bHasNormals = true;
 	}
 
-	//Primitive.bHasIndices = true;
+	auto ComputeTangent = [](const FVector& Normal)
+		{
+			FVector Arbitrary = FVector::RightVector;
+			if (FMath::Abs(FVector::DotProduct(Normal, Arbitrary)) > 0.99f)
+			{
+				Arbitrary = FVector::UpVector;
+			}
 
-	//Primitive.Normals.AddZeroed(Primitive.Positions.Num());
-
-	TMap<uint32, TArray<FVector>> FoundNormals;
+			const FVector Tangent = Arbitrary - Normal * FVector::DotProduct(Arbitrary, Normal);
+			return Tangent.GetSafeNormal();
+		};
 
 	const uint32 NumFaces = FaceCountsProperty->Num(FaceCountsPropertyTrueSampleIndex);
 	uint32 TotalFaceIndices = 0;
@@ -122,16 +126,6 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 			PolygonPositions.Add(Positions[PositionIndex]);
 			PositionIndexMap.Add(PositionIndex);
-
-			if (Normals.IsValidIndex(TotalFaceIndices + VertexIndex))
-			{
-				if (!FoundNormals.Contains(PositionIndex))
-				{
-					FoundNormals.Add(PositionIndex);
-				}
-				FoundNormals[PositionIndex].Add(Normals[TotalFaceIndices + VertexIndex]);
-			}
-
 			VertexIndexIndexMap.Add(TotalFaceIndices + VertexIndex);
 		}
 
@@ -153,21 +147,30 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 			if (RuntimeLOD.bHasNormals)
 			{
+				const int32 NormalsIndex = Primitive.Normals.Num();
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].A]]));
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].B]]));
 				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].C]]));
+
+				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex]));
+				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex + 1]));
+				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex + 2]));
 			}
 			else
 			{
-				Primitive.Normals.AddDefaulted();
-				Primitive.Normals.AddDefaulted();
-				Primitive.Normals.AddDefaulted();
+				const FVector EdgeA = Positions[PositionIndexMap[Triangles[TriangleIndex].B]] - Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
+				const FVector EdgeB = Positions[PositionIndexMap[Triangles[TriangleIndex].C]] - Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
+
+				const FVector GeneratedNormal = FVector::CrossProduct(EdgeB, EdgeA).GetSafeNormal();
+				Primitive.Normals.Add(GeneratedNormal);
+				Primitive.Normals.Add(GeneratedNormal);
+				Primitive.Normals.Add(GeneratedNormal);
+
+				const FVector GeneratedTangent = ComputeTangent(GeneratedNormal);
+				Primitive.Tangents.Add(GeneratedTangent);
+				Primitive.Tangents.Add(GeneratedTangent);
+				Primitive.Tangents.Add(GeneratedTangent);
 			}
-
-			Primitive.Tangents.AddDefaulted();
-			Primitive.Tangents.AddDefaulted();
-			Primitive.Tangents.AddDefaulted();
-
 		}
 
 		TotalFaceIndices += NumVertices;
