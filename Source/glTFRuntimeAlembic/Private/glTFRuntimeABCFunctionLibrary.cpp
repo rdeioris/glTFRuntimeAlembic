@@ -34,13 +34,12 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		return false;
 	}
 
-	TArray<FVector> Positions;
-	if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, Positions))
+	if (!PositionsProperty->Get(PositionsPropertyTrueSampleIndex, Primitive.Positions))
 	{
 		return false;
 	}
 
-	for (FVector& Position : Positions)
+	for (FVector& Position : Primitive.Positions)
 	{
 		Position = Asset->GetParser()->TransformPosition(Position);
 	}
@@ -83,6 +82,8 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		{
 			return false;
 		}
+
+		RuntimeLOD.bHasNormals = true;
 	}
 
 	auto ComputeTangent = [](const FVector& Normal)
@@ -99,6 +100,9 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 	const uint32 NumFaces = FaceCountsProperty->Num(FaceCountsPropertyTrueSampleIndex);
 	uint32 TotalFaceIndices = 0;
+
+	Primitive.Normals.AddZeroed(Primitive.Positions.Num());
+
 	for (uint32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
 	{
 		uint32 NumVertices;
@@ -108,7 +112,6 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 		}
 
 		TArray<uint32> PositionIndexMap;
-		TArray<uint32> VertexIndexIndexMap;
 		TArray<FVector> PolygonPositions;
 
 		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
@@ -119,84 +122,62 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 				return false;
 			}
 
-			if (!Positions.IsValidIndex(PositionIndex))
+			if (!Primitive.Positions.IsValidIndex(PositionIndex))
 			{
 				return false;
 			}
 
-			PolygonPositions.Add(Positions[PositionIndex]);
+			PolygonPositions.Add(Primitive.Positions[PositionIndex]);
 			PositionIndexMap.Add(PositionIndex);
-			VertexIndexIndexMap.Add(TotalFaceIndices + VertexIndex);
 		}
 
 		TArray<UE::Geometry::FIndex3i> Triangles;
-		PolygonTriangulation::TriangulateSimplePolygon(PolygonPositions, Triangles);
+		if (NumVertices != 3)
+		{
+			PolygonTriangulation::TriangulateSimplePolygon(PolygonPositions, Triangles);
+		}
+		else
+		{
+			Triangles.Add(UE::Geometry::FIndex3i({ 0, 2, 1 }));
+		}
+
 		for (uint32 TriangleIndex = 0; TriangleIndex < static_cast<uint32>(Triangles.Num()); TriangleIndex++)
 		{
-			/*
-			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].A]);
-			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].B]);
-			Primitive.Indices.Add(PositionIndexMap[Triangles[TriangleIndex].C]);
-			*/
-			Primitive.Indices.Add(Primitive.Indices.Num());
-			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].A]]);
-			Primitive.Indices.Add(Primitive.Indices.Num());
-			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].B]]);
-			Primitive.Indices.Add(Primitive.Indices.Num());
-			Primitive.Positions.Add(Positions[PositionIndexMap[Triangles[TriangleIndex].C]]);
+			const uint32 VertexIndexA = PositionIndexMap[Triangles[TriangleIndex].A];
+			const uint32 VertexIndexB = PositionIndexMap[Triangles[TriangleIndex].B];
+			const uint32 VertexIndexC = PositionIndexMap[Triangles[TriangleIndex].C];
+			Primitive.Indices.Add(VertexIndexA);
+			Primitive.Indices.Add(VertexIndexB);
+			Primitive.Indices.Add(VertexIndexC);
 
 			if (RuntimeLOD.bHasNormals)
 			{
-				const int32 NormalsIndex = Primitive.Normals.Num();
-				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].A]]));
-				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].B]]));
-				Primitive.Normals.Add(Asset->GetParser()->TransformVector(Normals[VertexIndexIndexMap[Triangles[TriangleIndex].C]]));
-
-				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex]));
-				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex + 1]));
-				Primitive.Tangents.Add(ComputeTangent(Primitive.Normals[NormalsIndex + 2]));
+				Primitive.Normals[VertexIndexA] += Asset->GetParser()->TransformVector(Normals[VertexIndexA]);
+				Primitive.Normals[VertexIndexB] += Asset->GetParser()->TransformVector(Normals[VertexIndexB]);
+				Primitive.Normals[VertexIndexC] += Asset->GetParser()->TransformVector(Normals[VertexIndexC]);
 			}
 			else
 			{
-				const FVector EdgeA = Positions[PositionIndexMap[Triangles[TriangleIndex].B]] - Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
-				const FVector EdgeB = Positions[PositionIndexMap[Triangles[TriangleIndex].C]] - Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
+				const FVector EdgeA = Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].B]] - Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
+				const FVector EdgeB = Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].C]] - Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
 
 				const FVector GeneratedNormal = FVector::CrossProduct(EdgeB, EdgeA).GetSafeNormal();
-				Primitive.Normals.Add(GeneratedNormal);
-				Primitive.Normals.Add(GeneratedNormal);
-				Primitive.Normals.Add(GeneratedNormal);
 
-				const FVector GeneratedTangent = ComputeTangent(GeneratedNormal);
-				Primitive.Tangents.Add(GeneratedTangent);
-				Primitive.Tangents.Add(GeneratedTangent);
-				Primitive.Tangents.Add(GeneratedTangent);
+				Primitive.Normals[VertexIndexA] += GeneratedNormal;
+				Primitive.Normals[VertexIndexB] += GeneratedNormal;
+				Primitive.Normals[VertexIndexC] += GeneratedNormal;
 			}
 		}
 
 		TotalFaceIndices += NumVertices;
 	}
 
-	auto SmoothAverage = [](const TArray<FVector>& Values) -> FVector
-		{
-			if (Values.Num() < 1)
-			{
-				return FVector::ZeroVector;
-			}
-
-			FVector Accumulator = FVector::ZeroVector;
-
-			for (const FVector& Value : Values)
-			{
-				Accumulator += Value;
-			}
-
-			return Accumulator / Values.Num();
-		};
-
-	/*for (const TPair<uint32, TArray<FVector>>& Pair : FoundNormals)
+	Primitive.Tangents.AddUninitialized(Primitive.Normals.Num());
+	for (int32 NormalIndex = 0; NormalIndex < Primitive.Normals.Num(); NormalIndex++)
 	{
-		Primitive.Normals[Pair.Key] = SmoothAverage(Pair.Value).GetSafeNormal();
-	}*/
+		Primitive.Normals[NormalIndex].Normalize();
+		Primitive.Tangents[NormalIndex] = ComputeTangent(Primitive.Normals[NormalIndex]);
+	}
 
 	RuntimeLOD.Primitives.Add(MoveTemp(Primitive));
 
