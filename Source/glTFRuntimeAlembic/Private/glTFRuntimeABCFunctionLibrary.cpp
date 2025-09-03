@@ -113,6 +113,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 		TArray<uint32> PositionIndexMap;
 		TArray<FVector> PolygonPositions;
+		TArray<uint32> VertexIndexMap;
 
 		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
 		{
@@ -129,6 +130,7 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 			PolygonPositions.Add(Primitive.Positions[PositionIndex]);
 			PositionIndexMap.Add(PositionIndex);
+			VertexIndexMap.Add(TotalFaceIndices + VertexIndex);
 		}
 
 		TArray<UE::Geometry::FIndex3i> Triangles;
@@ -143,29 +145,33 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectAsRuntimeLOD(UglTFRuntimeA
 
 		for (uint32 TriangleIndex = 0; TriangleIndex < static_cast<uint32>(Triangles.Num()); TriangleIndex++)
 		{
-			const uint32 VertexIndexA = PositionIndexMap[Triangles[TriangleIndex].A];
-			const uint32 VertexIndexB = PositionIndexMap[Triangles[TriangleIndex].B];
-			const uint32 VertexIndexC = PositionIndexMap[Triangles[TriangleIndex].C];
-			Primitive.Indices.Add(VertexIndexA);
-			Primitive.Indices.Add(VertexIndexB);
-			Primitive.Indices.Add(VertexIndexC);
+			const uint32 PositionIndexA = PositionIndexMap[Triangles[TriangleIndex].A];
+			const uint32 PositionIndexB = PositionIndexMap[Triangles[TriangleIndex].B];
+			const uint32 PositionIndexC = PositionIndexMap[Triangles[TriangleIndex].C];
+			const uint32 VertexIndexA = VertexIndexMap[Triangles[TriangleIndex].A];
+			const uint32 VertexIndexB = VertexIndexMap[Triangles[TriangleIndex].B];
+			const uint32 VertexIndexC = VertexIndexMap[Triangles[TriangleIndex].C];
+
+			Primitive.Indices.Add(PositionIndexA);
+			Primitive.Indices.Add(PositionIndexB);
+			Primitive.Indices.Add(PositionIndexC);
 
 			if (RuntimeLOD.bHasNormals)
 			{
-				Primitive.Normals[VertexIndexA] += Asset->GetParser()->TransformVector(Normals[VertexIndexA]);
-				Primitive.Normals[VertexIndexB] += Asset->GetParser()->TransformVector(Normals[VertexIndexB]);
-				Primitive.Normals[VertexIndexC] += Asset->GetParser()->TransformVector(Normals[VertexIndexC]);
+				Primitive.Normals[PositionIndexA] += Asset->GetParser()->TransformVector(Normals[VertexIndexA]);
+				Primitive.Normals[PositionIndexB] += Asset->GetParser()->TransformVector(Normals[VertexIndexB]);
+				Primitive.Normals[PositionIndexC] += Asset->GetParser()->TransformVector(Normals[VertexIndexC]);
 			}
 			else
 			{
-				const FVector EdgeA = Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].B]] - Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
-				const FVector EdgeB = Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].C]] - Primitive.Positions[PositionIndexMap[Triangles[TriangleIndex].A]];
+				const FVector EdgeA = Primitive.Positions[PositionIndexB] - Primitive.Positions[PositionIndexA];
+				const FVector EdgeB = Primitive.Positions[PositionIndexC] - Primitive.Positions[PositionIndexA];
 
 				const FVector GeneratedNormal = FVector::CrossProduct(EdgeB, EdgeA).GetSafeNormal();
 
-				Primitive.Normals[VertexIndexA] += GeneratedNormal;
-				Primitive.Normals[VertexIndexB] += GeneratedNormal;
-				Primitive.Normals[VertexIndexC] += GeneratedNormal;
+				Primitive.Normals[PositionIndexA] += GeneratedNormal;
+				Primitive.Normals[PositionIndexB] += GeneratedNormal;
+				Primitive.Normals[PositionIndexC] += GeneratedNormal;
 			}
 		}
 

@@ -28,6 +28,12 @@ void AglTFRuntimeAlembicAssetActor::BeginPlay()
 		return;
 	}
 
+	if (Asset->GetParser()->GetBlob().Num() <= 0)
+	{
+		Asset->GetParser()->AddError("AglTFRuntimeAlembicAssetActor::BeginPlay()", "Asset not opened in blob mode");
+		return;
+	}
+
 	TSharedPtr<glTFRuntimeAlembic::FObject> RootObject = glTFRuntimeAlembic::ParseArchive(Asset->GetParser()->GetBlob());
 	if (!RootObject)
 	{
