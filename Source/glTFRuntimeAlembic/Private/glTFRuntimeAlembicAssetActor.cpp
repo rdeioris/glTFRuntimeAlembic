@@ -160,6 +160,10 @@ void AglTFRuntimeAlembicAssetActor::ProcessObject(USceneComponent* Component, TS
 		{
 			ChildComponent = NewObject<UGroomComponent>(this, MakeUniqueObjectName(this, UGroomComponent::StaticClass(), *Child->Name));
 		}
+		else if (Child->GetSchema() == "AbcGeom_Camera_v1")
+		{
+			ChildComponent = NewObject<UCameraComponent>(this, MakeUniqueObjectName(this, UCameraComponent::StaticClass(), *Child->Name));
+		}
 		else
 		{
 			ChildComponent = NewObject<USceneComponent>(this, MakeUniqueObjectName(this, USceneComponent::StaticClass(), *Child->Name));

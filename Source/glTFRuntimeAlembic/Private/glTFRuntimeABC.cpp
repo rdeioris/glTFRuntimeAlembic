@@ -799,6 +799,22 @@ namespace glTFRuntimeAlembic
 		return ScalarProperty;
 	}
 
+	TSharedPtr<FCompoundProperty> FObject::FindCompoundProperty(const FString& PropertyPath) const
+	{
+		TSharedPtr<IProperty> Property = FindProperty(PropertyPath);
+		if (!Property)
+		{
+			return nullptr;
+		}
+
+		if (!Property->bIsCompound)
+		{
+			return nullptr;
+		}
+
+		return StaticCastSharedPtr<FCompoundProperty>(Property);
+	}
+
 	TSharedPtr<IProperty> FCompoundProperty::GetChild(const int32 ChildIndex) const
 	{
 		if (!Children.IsValidIndex(ChildIndex))
@@ -820,6 +836,16 @@ namespace glTFRuntimeAlembic
 		}
 
 		return nullptr;
+	}
+
+	TArray<FString> FCompoundProperty::GetChildrenNames() const
+	{
+		TArray<FString> Names;
+		for (const TSharedRef<IProperty>& Child : Children)
+		{
+			Names.Add(Child->Name);
+		}
+		return Names;
 	}
 
 	TMap<FString, FString> DataToMetadata(const TArrayView64<uint8>& Data)

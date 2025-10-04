@@ -715,6 +715,7 @@ namespace glTFRuntimeAlembic
 		TSharedPtr<IProperty> FindProperty(const FString& PropertyPath) const;
 		TSharedPtr<FArrayProperty> FindArrayProperty(const FString& PropertyPath) const;
 		TSharedPtr<FScalarProperty> FindScalarProperty(const FString& PropertyPath) const;
+		TSharedPtr<FCompoundProperty> FindCompoundProperty(const FString& PropertyPath) const;
 
 		FString GetSchema() const;
 	};

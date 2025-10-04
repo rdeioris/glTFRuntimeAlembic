@@ -422,3 +422,43 @@ bool UglTFRuntimeABCFunctionLibrary::LoadAlembicObjectIntoSplineComponent(UglTFR
 
 	return true;
 }
+
+bool UglTFRuntimeABCFunctionLibrary::GetAlembicObjectPropertiesNames(UglTFRuntimeAsset* Asset, const FString& ObjectPath, const FString& CompoundPropertyPath, TArray<FString>& PropertiesNames)
+{
+	if (!Asset)
+	{
+		return false;
+	}
+
+	TSharedPtr<glTFRuntimeAlembic::FObject> Root = glTFRuntimeAlembic::ParseArchive(Asset->GetParser()->GetBlob());
+	if (!Root)
+	{
+		return false;
+	}
+
+	TSharedPtr<const glTFRuntimeAlembic::FObject> Object = Root->Find(ObjectPath);
+	if (!Object)
+	{
+		return false;
+	}
+
+	TSharedPtr<glTFRuntimeAlembic::FCompoundProperty> CompoundProperty = nullptr;
+
+	if (CompoundPropertyPath.IsEmpty())
+	{
+		CompoundProperty = Object->Properties;
+	}
+	else
+	{
+		CompoundProperty = Object->FindCompoundProperty(CompoundPropertyPath);
+	}
+
+	if (!CompoundProperty)
+	{
+		return false;
+	}
+
+	PropertiesNames = CompoundProperty->GetChildrenNames();
+
+	return true;
+}
