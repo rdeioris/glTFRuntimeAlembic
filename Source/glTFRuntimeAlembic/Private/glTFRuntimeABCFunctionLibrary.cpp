@@ -337,7 +337,11 @@ UGroomAsset* UglTFRuntimeABCFunctionLibrary::LoadGroomFromAlembicObject(UglTFRun
 	}
 
 #if WITH_EDITOR
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
+	GroomAsset->CommitHairDescription(MoveTemp(HairDescription), EHairDescriptionType::Source);
+#else
 	GroomAsset->CommitHairDescription(MoveTemp(HairDescription), UGroomAsset::EHairDescriptionType::Source);
+#endif
 	GroomAsset->CacheDerivedDatas();
 #endif
 
